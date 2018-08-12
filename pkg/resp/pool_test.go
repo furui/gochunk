@@ -19,8 +19,21 @@ func TestPool(t *testing.T) {
 	assert.Error(t, err)
 	c := mocks.NewMockConn()
 	p.Queue(c)
-	c.Write([]byte("!TEST\r\n"))
-	time.Sleep(10 * time.Millisecond)
+
+	buf := make([]byte, 50)
+
+	c.ReadPipeWriter.Write([]byte("!TEST\r\n"))
+	time.Sleep(100 * time.Millisecond)
+	n, err := c.WritePipeReader.Read(buf)
+	assert.NoError(t, err)
+	assert.Equal(t, "-scan error\r\n", string(buf[:n]))
+
+	c.ReadPipeWriter.Write([]byte("*1\r\n$4\r\nKAYS\r\n"))
+	time.Sleep(100 * time.Millisecond)
+	n, err = c.WritePipeReader.Read(buf)
+	assert.NoError(t, err)
+	assert.Equal(t, "-command not found\r\n", string(buf[:n]))
+
 	d := mocks.NewMockConn()
 	p.Queue(d)
 	err = p.Stop()
