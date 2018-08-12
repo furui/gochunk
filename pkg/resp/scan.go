@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+
+	respTypes "github.com/furui/gochunk/pkg/types"
 )
 
 // Scanner provides an interface for scanning in RESP from IO
@@ -15,7 +17,7 @@ type Scanner struct {
 	err        error
 	scanCalled bool
 	done       bool
-	t          Type
+	t          respTypes.Type
 }
 
 // NewScanner returns a new scanner
@@ -49,11 +51,11 @@ func (s *Scanner) Err() error {
 }
 
 // Type returns the last type read
-func (s *Scanner) Type() Type {
+func (s *Scanner) Type() respTypes.Type {
 	return s.t
 }
 
-func (s *Scanner) scanType() (Type, error) {
+func (s *Scanner) scanType() (respTypes.Type, error) {
 	val, err := s.read.ReadSlice('\n')
 	if err != nil {
 		return nil, err
@@ -67,10 +69,10 @@ func (s *Scanner) scanType() (Type, error) {
 
 	switch val[0] {
 	case '+':
-		t := SimpleString(string(val[1:]))
+		t := respTypes.SimpleString(string(val[1:]))
 		return &t, nil
 	case '-':
-		t := Error(string(val[1:]))
+		t := respTypes.Error(string(val[1:]))
 		return &t, nil
 	case ':':
 		i, err := strconv.ParseInt(string(val[1:]), 10, 64)
@@ -78,7 +80,7 @@ func (s *Scanner) scanType() (Type, error) {
 			s.read.Reset(s.r)
 			return nil, err
 		}
-		t := Integer(i)
+		t := respTypes.Integer(i)
 		return &t, nil
 	case '$':
 		i, err := strconv.ParseInt(string(val[1:]), 10, 64)
@@ -87,7 +89,7 @@ func (s *Scanner) scanType() (Type, error) {
 			return nil, err
 		}
 		if i < 0 {
-			return &BulkString{Data: nil}, nil
+			return &respTypes.BulkString{Data: nil}, nil
 		}
 		buf := make([]byte, i, i)
 		if i > 0 {
@@ -113,7 +115,7 @@ func (s *Scanner) scanType() (Type, error) {
 			s.read.Reset(s.r)
 			return nil, fmt.Errorf("Terminating CRLF not found")
 		}
-		return &BulkString{Data: buf}, nil
+		return &respTypes.BulkString{Data: buf}, nil
 	case '*':
 		n, err := strconv.ParseInt(string(val[1:]), 10, 64)
 		if err != nil {
@@ -123,7 +125,7 @@ func (s *Scanner) scanType() (Type, error) {
 			s.read.Reset(s.r)
 			return nil, fmt.Errorf("Number of indexes must be zero or positive")
 		}
-		t := []Type{}
+		t := []respTypes.Type{}
 		for i := int64(0); i < n; i++ {
 			v, err := s.scanType()
 			if err != nil {
@@ -131,7 +133,7 @@ func (s *Scanner) scanType() (Type, error) {
 			}
 			t = append(t, v)
 		}
-		return &Array{Contents: t}, nil
+		return &respTypes.Array{Contents: t}, nil
 	default:
 		return nil, fmt.Errorf("Unknown type")
 	}

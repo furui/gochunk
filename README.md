@@ -1,3 +1,3 @@
-# gochunks
+# gochunk
 
-Gochunks is a Redis RESP compatible server in development.
+Gochunk is a Redis RESP compatible server in development.

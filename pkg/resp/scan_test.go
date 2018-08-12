@@ -6,17 +6,18 @@ import (
 	"reflect"
 	"testing"
 
+	respTypes "github.com/furui/gochunk/pkg/types"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestScanner_Type(t *testing.T) {
-	ss := SimpleString("OK")
-	e := Error("BAD")
-	i := Integer(1234)
+	ss := respTypes.SimpleString("OK")
+	e := respTypes.Error("BAD")
+	i := respTypes.Integer(1234)
 	tests := []struct {
 		name string
 		r    io.Reader
-		want Type
+		want respTypes.Type
 	}{
 		{
 			name: "simple string",
@@ -36,33 +37,33 @@ func TestScanner_Type(t *testing.T) {
 		{
 			name: "bulk string",
 			r:    bytes.NewBufferString("$2\r\nOK\r\n"),
-			want: &BulkString{Data: []byte("OK")},
+			want: &respTypes.BulkString{Data: []byte("OK")},
 		},
 		{
 			name: "empty bulk string",
 			r:    bytes.NewBufferString("$0\r\n\r\n"),
-			want: &BulkString{Data: []byte{}},
+			want: &respTypes.BulkString{Data: []byte{}},
 		},
 		{
 			name: "null bulk string",
 			r:    bytes.NewBufferString("$-1\r\n"),
-			want: &BulkString{Data: nil},
+			want: &respTypes.BulkString{Data: nil},
 		},
 		{
 			name: "array",
 			r:    bytes.NewBufferString("*2\r\n$3\r\nfoo\r\n$3\r\nbar\r\n"),
-			want: &Array{
-				Contents: []Type{
-					&BulkString{Data: []byte("foo")},
-					&BulkString{Data: []byte("bar")},
+			want: &respTypes.Array{
+				Contents: []respTypes.Type{
+					&respTypes.BulkString{Data: []byte("foo")},
+					&respTypes.BulkString{Data: []byte("bar")},
 				},
 			},
 		},
 		{
 			name: "empty array",
 			r:    bytes.NewBufferString("*0\r\n"),
-			want: &Array{
-				Contents: []Type{},
+			want: &respTypes.Array{
+				Contents: []respTypes.Type{},
 			},
 		},
 	}
