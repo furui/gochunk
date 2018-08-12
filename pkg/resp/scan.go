@@ -35,7 +35,7 @@ func (s *Scanner) Scan() bool {
 	}
 	s.err = nil
 	s.t, s.err = s.scanType()
-	if s.err == io.EOF {
+	if s.err == io.EOF || s.err == io.ErrClosedPipe || s.err == io.ErrUnexpectedEOF {
 		s.done = true
 		return false
 	}

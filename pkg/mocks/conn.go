@@ -12,25 +12,29 @@ type MockConn struct {
 	ReadPipeWriter  *io.PipeWriter
 	WritePipeReader *io.PipeReader
 	WritePipeWriter *io.PipeWriter
-	closed          bool
 }
 
 func (c *MockConn) Read(b []byte) (n int, err error) {
-	if c.closed {
-		return 0, io.EOF
-	}
 	return c.ReadPipeReader.Read(b)
 }
 
 func (c *MockConn) Write(b []byte) (n int, err error) {
-	if c.closed {
-		return 0, io.EOF
-	}
 	return c.WritePipeWriter.Write(b)
 }
 
 func (c *MockConn) Close() error {
-	c.closed = true
+	if err := c.ReadPipeReader.Close(); err != nil {
+		return err
+	}
+	if err := c.ReadPipeWriter.Close(); err != nil {
+		return err
+	}
+	if err := c.WritePipeReader.Close(); err != nil {
+		return err
+	}
+	if err := c.WritePipeWriter.Close(); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -69,6 +73,5 @@ func NewMockConn() *MockConn {
 		ReadPipeWriter:  w1,
 		WritePipeReader: r2,
 		WritePipeWriter: w2,
-		closed:          false,
 	}
 }

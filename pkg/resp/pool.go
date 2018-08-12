@@ -108,6 +108,9 @@ func (p *pool) thread() {
 				if e != nil {
 					log.Printf("couldn't send error to %s: %s", conn.RemoteAddr().String(), e)
 				}
+				if e == io.EOF || e == io.ErrClosedPipe || e == io.ErrUnexpectedEOF {
+					break
+				}
 				continue
 			}
 			res, ok := scanner.Type().(*respTypes.Array)
@@ -117,6 +120,9 @@ func (p *pool) thread() {
 				if e != nil {
 					log.Printf("couldn't send error to %s: %s", conn.RemoteAddr().String(), e)
 				}
+				if e == io.EOF || e == io.ErrClosedPipe || e == io.ErrUnexpectedEOF {
+					break
+				}
 				continue
 			}
 			if len(res.Contents) < 1 {
@@ -125,6 +131,9 @@ func (p *pool) thread() {
 				if e != nil {
 					log.Printf("couldn't send error to %s: %s", conn.RemoteAddr().String(), e)
 				}
+				if e == io.EOF || e == io.ErrClosedPipe || e == io.ErrUnexpectedEOF {
+					break
+				}
 				continue
 			}
 			if !containsAllBulkStrings(res.Contents) {
@@ -132,6 +141,9 @@ func (p *pool) thread() {
 				log.Printf("invalid data %s", conn.RemoteAddr().String())
 				if e != nil {
 					log.Printf("couldn't send error to %s: %s", conn.RemoteAddr().String(), e)
+				}
+				if e == io.EOF || e == io.ErrClosedPipe || e == io.ErrUnexpectedEOF {
+					break
 				}
 				continue
 			}
@@ -146,16 +158,19 @@ func (p *pool) thread() {
 				if e != nil {
 					log.Printf("couldn't send error to %s: %s", conn.RemoteAddr().String(), e)
 				}
+				if e == io.EOF || e == io.ErrClosedPipe || e == io.ErrUnexpectedEOF {
+					break
+				}
 				continue
 			}
 			if _, err := response.Stream(writer); err != nil {
-				if err == io.EOF {
+				if err == io.EOF || err == io.ErrClosedPipe || err == io.ErrUnexpectedEOF {
 					break
 				}
 				log.Printf("couldn't stream to %s: %s", conn.RemoteAddr().String(), err)
 			}
 			if err := writer.Flush(); err != nil {
-				if err == io.EOF {
+				if err == io.EOF || err == io.ErrClosedPipe || err == io.ErrUnexpectedEOF {
 					break
 				}
 				log.Printf("couldn't flush to %s: %s", conn.RemoteAddr().String(), err)
