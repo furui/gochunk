@@ -3,9 +3,11 @@ package resp
 import (
 	"bufio"
 	"bytes"
+	"encoding/csv"
 	"fmt"
 	"io"
 	"strconv"
+	"strings"
 
 	respTypes "github.com/furui/gochunk/pkg/types"
 )
@@ -135,6 +137,16 @@ func (s *Scanner) scanType() (respTypes.Type, error) {
 		}
 		return &respTypes.Array{Contents: t}, nil
 	default:
-		return nil, fmt.Errorf("Unknown type")
+		r := csv.NewReader(strings.NewReader(string(val)))
+		r.Comma = ' '
+		record, err := r.Read()
+		if err != nil {
+			return nil, err
+		}
+		t := []respTypes.Type{}
+		for _, s := range record {
+			t = append(t, &respTypes.BulkString{Data: []byte(s)})
+		}
+		return &respTypes.Array{Contents: t}, nil
 	}
 }

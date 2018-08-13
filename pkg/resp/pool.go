@@ -42,20 +42,30 @@ type pool struct {
 	threads      int
 	started      bool
 	mutex        *sync.Mutex
+	cond         *sync.Cond
 	readTimeout  time.Duration
 	writeTimeout time.Duration
 	config       *Config
 }
 
-func (p *pool) Queue(conn net.Conn) {
+func (p *pool) Lock() {
 	p.mutex.Lock()
-	p.connections = append(p.connections, conn)
+}
+
+func (p *pool) Unlock() {
 	p.mutex.Unlock()
 }
 
+func (p *pool) Queue(conn net.Conn) {
+	p.Lock()
+	p.connections = append(p.connections, conn)
+	p.Unlock()
+	p.cond.Signal()
+}
+
 func (p *pool) dequeue() net.Conn {
-	p.mutex.Lock()
-	defer p.mutex.Unlock()
+	p.Lock()
+	defer p.Unlock()
 	if len(p.connections) == 0 {
 		return nil
 	}
@@ -94,6 +104,9 @@ func (p *pool) kill() error {
 
 func (p *pool) thread() {
 	for p.started != false {
+		p.Lock()
+		p.cond.Wait()
+		p.Unlock()
 		conn := p.dequeue()
 		if conn == nil {
 			continue
@@ -191,6 +204,7 @@ func NewPool(config *Config, processor processor.Processor) Pool {
 		readTimeout:  config.ReadTimeout,
 		writeTimeout: config.WriteTimeout,
 	}
+	p.cond = sync.NewCond(p)
 	return p
 }
 

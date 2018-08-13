@@ -16,7 +16,7 @@ type Config struct {
 // NewConfig reads a new config
 func NewConfig() *Config {
 	return &Config{
-		Host:         "127.0.0.1",
+		Host:         "127.0.0.1:3030",
 		Workers:      runtime.NumCPU(),
 		ReadTimeout:  5 * time.Minute,
 		WriteTimeout: 5 * time.Minute,
