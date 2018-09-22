@@ -1,15 +1,10 @@
 package processor
 
 import (
-	"errors"
+	"fmt"
 
 	"github.com/armon/go-radix"
 	respTypes "github.com/furui/gochunk/pkg/types"
-)
-
-var (
-	// ErrCommandNotFound is thrown if the
-	ErrCommandNotFound = errors.New("command not found")
 )
 
 // Command is executed when a matching command is matched
@@ -50,7 +45,7 @@ func (p *processor) DeleteCommand(command string) bool {
 func (p *processor) Execute(command string, params [][]byte) (respTypes.Type, error) {
 	c, exist := p.r.Get(command)
 	if !exist {
-		return nil, ErrCommandNotFound
+		return nil, fmt.Errorf("unknown command '%s'", command)
 	}
 	return c.(Command)(params)
 }

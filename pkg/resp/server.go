@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log"
 	"net"
+
+	"github.com/furui/gochunk/pkg/config"
 )
 
 // Server provides a RESP server
@@ -13,7 +15,7 @@ type Server interface {
 }
 
 type server struct {
-	config   *Config
+	config   *config.Config
 	listener net.Listener
 	started  bool
 	pool     Pool
@@ -66,6 +68,6 @@ func (s *server) Stop() error {
 }
 
 // NewServer returns a new server
-func NewServer(config *Config, pool Pool) Server {
+func NewServer(config *config.Config, pool Pool) Server {
 	return &server{config: config, pool: pool, listener: nil, started: false}
 }

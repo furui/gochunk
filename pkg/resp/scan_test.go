@@ -135,18 +135,13 @@ func TestScanner_Err(t *testing.T) {
 			r:       bytes.NewBufferString("*abc\r\n"),
 			message: "strconv.ParseInt: parsing \"abc\": invalid syntax",
 		},
-		{
-			name:    "unknown type",
-			r:       bytes.NewBufferString("!abc\r\n"),
-			message: "Unknown type",
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := NewScanner(tt.r)
 			s.Scan()
-			assert.Equal(t, tt.message, s.Err().Error())
 			assert.Error(t, s.Err())
+			assert.Equal(t, tt.message, s.Err().Error())
 		})
 	}
 }

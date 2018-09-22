@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/furui/gochunk/pkg/config"
 	"github.com/furui/gochunk/pkg/processor"
 	respTypes "github.com/furui/gochunk/pkg/types"
 
@@ -13,7 +14,7 @@ import (
 )
 
 func TestPool(t *testing.T) {
-	p := resp.NewPool(resp.NewConfig(), processor.NewProcessor())
+	p := resp.NewPool(config.NewConfig(), processor.NewProcessor())
 	err := p.Start()
 	assert.NoError(t, err)
 	err = p.Start()
@@ -35,7 +36,7 @@ func TestPoolResponses(t *testing.T) {
 			&s,
 		}}, nil
 	})
-	p := resp.NewPool(resp.NewConfig(), proc)
+	p := resp.NewPool(config.NewConfig(), proc)
 	err := p.Start()
 	assert.NoError(t, err)
 	err = p.Start()
@@ -52,12 +53,12 @@ func TestPoolResponses(t *testing.T) {
 		{
 			desc:     "scan error",
 			write:    []byte("!TEST\r\n"),
-			response: []byte("-scan error\r\n"),
+			response: []byte("-unknown command '!TEST'\r\n"),
 		},
 		{
 			desc:     "command not found",
 			write:    []byte("*1\r\n$4\r\nKAYS\r\n"),
-			response: []byte("-command not found\r\n"),
+			response: []byte("-unknown command 'KAYS'\r\n"),
 		},
 		{
 			desc:     "not array",

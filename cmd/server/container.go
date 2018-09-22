@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/furui/gochunk/pkg/config"
 	"github.com/furui/gochunk/pkg/processor"
 	"github.com/furui/gochunk/pkg/resp"
 	"go.uber.org/dig"
@@ -10,6 +11,7 @@ import (
 func NewContainer() *dig.Container {
 	c := dig.New()
 
+	c.Provide(config.NewConfig)
 	c.Provide(resp.NewConfig)
 	c.Provide(resp.NewPool)
 	c.Provide(resp.NewScanner)

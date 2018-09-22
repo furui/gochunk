@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/furui/gochunk/pkg/config"
 	"github.com/furui/gochunk/pkg/processor"
 	respTypes "github.com/furui/gochunk/pkg/types"
 )
@@ -45,7 +46,7 @@ type pool struct {
 	cond         *sync.Cond
 	readTimeout  time.Duration
 	writeTimeout time.Duration
-	config       *Config
+	config       *config.Config
 }
 
 func (p *pool) Lock() {
@@ -194,7 +195,7 @@ func (p *pool) thread() {
 }
 
 // NewPool creates a new thread pool
-func NewPool(config *Config, processor processor.Processor) Pool {
+func NewPool(config *config.Config, processor processor.Processor) Pool {
 	p := &pool{
 		processor:    processor,
 		connections:  make([]net.Conn, 0),
@@ -203,6 +204,7 @@ func NewPool(config *Config, processor processor.Processor) Pool {
 		mutex:        &sync.Mutex{},
 		readTimeout:  config.ReadTimeout,
 		writeTimeout: config.WriteTimeout,
+		config:       config,
 	}
 	p.cond = sync.NewCond(p)
 	return p
