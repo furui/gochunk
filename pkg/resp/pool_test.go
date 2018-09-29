@@ -84,7 +84,7 @@ func TestPoolResponses(t *testing.T) {
 	for _, tC := range testCases {
 		t.Run(tC.desc, func(t *testing.T) {
 			c.ReadPipeWriter.Write(tC.write)
-			time.Sleep(10 * time.Millisecond)
+			time.Sleep(100 * time.Millisecond)
 			n, err := c.WritePipeReader.Read(buf)
 			assert.NoError(t, err)
 			assert.Equal(t, tC.response, buf[:n])
