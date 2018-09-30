@@ -84,6 +84,5 @@ func TestExecuteNotFound(t *testing.T) {
 	p := NewProcessor()
 	res, err := p.Execute("DOESNTEXIST", [][]byte{})
 	assert.Error(t, err)
-	assert.Equal(t, ErrCommandNotFound, err)
 	assert.Nil(t, res)
 }

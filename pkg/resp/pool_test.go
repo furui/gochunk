@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestPoolResponses(t *testing.T) {
+func setupPool() (resp.Pool, *config.Config) {
 	proc := processor.NewProcessor()
 	proc.AddCommand("KEYS", func(params [][]byte) (respTypes.Type, error) {
 		s := respTypes.SimpleString("TEST")
@@ -23,10 +23,23 @@ func TestPoolResponses(t *testing.T) {
 	})
 	conf := config.NewConfig()
 	p := resp.NewPool(conf, proc)
+	return p, conf
+}
+
+func TestPool(t *testing.T) {
+	p, _ := setupPool()
 	err := p.Start()
 	assert.NoError(t, err)
 	err = p.Start()
 	assert.Error(t, err)
+	err = p.Stop()
+	assert.NoError(t, err)
+}
+
+func TestPoolResponses(t *testing.T) {
+	p, conf := setupPool()
+	err := p.Start()
+	assert.NoError(t, err)
 	buf := make([]byte, 50)
 	s, c := mocks.NewMockConn()
 	p.Queue(s)
@@ -111,8 +124,8 @@ func TestPoolResponses(t *testing.T) {
 		},
 		{
 			desc:     "real command after auth",
-			write:    []byte("*2\r\n$4\r\nKEYS\r\n$1\r\n*\r\n"),
-			response: []byte("*1\r\n+TEST\r\n"),
+			write:    []byte("*2\r\n$4\r\nAUTH\r\n$4\r\ntest\r\n*2\r\n$4\r\nKEYS\r\n$1\r\n*\r\n"),
+			response: []byte("*1\r\n+OK\r\n*1\r\n+TEST\r\n"),
 		},
 	}
 	for _, tC := range authCases {
@@ -132,4 +145,8 @@ func TestPoolResponses(t *testing.T) {
 
 	err = p.Stop()
 	assert.NoError(t, err)
+}
+
+func TestIncompleteConnection(t *testing.T) {
+
 }

@@ -79,6 +79,8 @@ func (p *pool) dequeue() net.Conn {
 }
 
 func (p *pool) Start() error {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
 	if p.started == true {
 		return fmt.Errorf("Pool already started")
 	}
@@ -106,8 +108,15 @@ func (p *pool) kill() error {
 	return nil
 }
 
+func (p *pool) running() (status bool) {
+	p.Lock()
+	status = p.started
+	p.Unlock()
+	return
+}
+
 func (p *pool) thread() {
-	for p.started != false {
+	for p.running() != false {
 		p.Lock()
 		p.cond.Wait()
 		p.Unlock()
