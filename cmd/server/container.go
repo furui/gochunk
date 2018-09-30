@@ -12,7 +12,6 @@ func NewContainer() *dig.Container {
 	c := dig.New()
 
 	c.Provide(config.NewConfig)
-	c.Provide(resp.NewConfig)
 	c.Provide(resp.NewPool)
 	c.Provide(resp.NewScanner)
 	c.Provide(resp.NewServer)
