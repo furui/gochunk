@@ -43,6 +43,7 @@ func (g *generator) Reset() {
 	g.counter = 0
 }
 
+// GenerateTimeCounter creates a non-cryptographic UUID based off the current time and a counter
 func (g *generator) GenerateTimeCounter() UUID {
 	t := time.Now()
 	n := t.UnixNano()
