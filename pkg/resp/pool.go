@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
@@ -28,6 +29,8 @@ var (
 	ErrWrite = errors.New("write failed")
 	// ErrFlush is thrown when a flush fails
 	ErrFlush = errors.New("flush failed")
+	// ErrNoAuth is thrown when an auth error occurs
+	ErrNoAuth = errors.New("authentication required")
 )
 
 // Pool contains a thread pool that handles connections
@@ -112,11 +115,18 @@ func (p *pool) thread() {
 		if conn == nil {
 			continue
 		}
+		authed := false
+		if p.config.RequirePass == "" {
+			authed = true
+		}
 		scanner := NewScanner(conn)
 		writer := bufio.NewWriter(conn)
 		for conn.SetReadDeadline(time.Now().Add(p.readTimeout)); scanner.Scan(); conn.SetReadDeadline(time.Now().Add(p.readTimeout)) {
 			conn.SetWriteDeadline(time.Now().Add(p.writeTimeout))
 			if err := scanner.Err(); err != nil {
+				if err == ErrClosedConnection {
+					break
+				}
 				e := sendError(writer, ErrScan.Error())
 				log.Printf("scan error %s: %s", conn.RemoteAddr().String(), err)
 				if e != nil {
@@ -166,6 +176,21 @@ func (p *pool) thread() {
 			for _, v := range res.Contents[1:] {
 				params = append(params, v.Value().([]byte))
 			}
+			authAttempt := false
+			if authed == false && strings.ToLower(cmd) == "auth" {
+				authAttempt = true
+			}
+			if authed == false && authAttempt == false {
+				log.Printf("unauthorized access attempt from %s", conn.RemoteAddr().String())
+				e := sendError(writer, ErrNoAuth.Error())
+				if e != nil {
+					log.Printf("couldn't send error to %s: %s", conn.RemoteAddr().String(), e)
+				}
+				if e == io.EOF || e == io.ErrClosedPipe || e == io.ErrUnexpectedEOF {
+					break
+				}
+				continue
+			}
 			response, err := p.processor.Execute(cmd, params)
 			if err != nil {
 				e := sendError(writer, err.Error())
@@ -176,6 +201,9 @@ func (p *pool) thread() {
 					break
 				}
 				continue
+			}
+			if authed == false && authAttempt == true {
+				authed = true
 			}
 			if _, err := response.Stream(writer); err != nil {
 				if err == io.EOF || err == io.ErrClosedPipe || err == io.ErrUnexpectedEOF {
@@ -196,6 +224,24 @@ func (p *pool) thread() {
 
 // NewPool creates a new thread pool
 func NewPool(config *config.Config, processor processor.Processor) Pool {
+	// Add the auth command
+	processor.AddCommand("AUTH", func(params [][]byte) (respTypes.Type, error) {
+		s := make([]string, 0)
+		for _, v := range params {
+			s = append(s, string(v))
+		}
+		passwd := strings.Join(s, " ")
+		if len(params) > 0 {
+			if passwd == config.RequirePass {
+				s := respTypes.SimpleString("OK")
+				return &respTypes.Array{Contents: []respTypes.Type{
+					&s,
+				}}, nil
+			}
+		}
+		return nil, ErrNoAuth
+	})
+
 	p := &pool{
 		processor:    processor,
 		connections:  make([]net.Conn, 0),
@@ -213,9 +259,12 @@ func NewPool(config *config.Config, processor processor.Processor) Pool {
 func sendError(w *bufio.Writer, msg string) error {
 	e := respTypes.Error(msg)
 	b := e.Bytes()
-	_, err := w.Write(b)
+	nn, err := w.Write(b)
 	if err != nil {
 		return ErrWrite
+	}
+	if nn == 0 {
+		return io.EOF
 	}
 	err = w.Flush()
 	if err != nil {

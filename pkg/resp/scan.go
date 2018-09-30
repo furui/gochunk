@@ -4,12 +4,18 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/csv"
+	"errors"
 	"fmt"
 	"io"
 	"strconv"
 	"strings"
 
 	respTypes "github.com/furui/gochunk/pkg/types"
+)
+
+var (
+	// ErrClosedConnection is thrown when the connection is closed
+	ErrClosedConnection = errors.New("closed connection")
 )
 
 // Scanner provides an interface for scanning in RESP from IO
@@ -61,6 +67,9 @@ func (s *Scanner) scanType() (respTypes.Type, error) {
 	val, err := s.read.ReadSlice('\n')
 	if err != nil {
 		return nil, err
+	}
+	if len(val) == 0 {
+		return nil, ErrClosedConnection
 	}
 	// Trim off the CR
 	if val[len(val)-2] != '\r' {

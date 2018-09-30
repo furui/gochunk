@@ -12,6 +12,7 @@ type Config struct {
 	ReadTimeout      time.Duration
 	WriteTimeout     time.Duration
 	DatabaseLocation string
+	RequirePass      string
 }
 
 // NewConfig reads a new config
@@ -22,5 +23,6 @@ func NewConfig() *Config {
 		ReadTimeout:      5 * time.Minute,
 		WriteTimeout:     5 * time.Minute,
 		DatabaseLocation: "/var/local/gochunk",
+		RequirePass:      "",
 	}
 }
