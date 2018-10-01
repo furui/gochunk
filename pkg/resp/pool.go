@@ -133,18 +133,13 @@ func (p *pool) thread() {
 		for conn.SetReadDeadline(time.Now().Add(p.readTimeout)); scanner.Scan(); conn.SetReadDeadline(time.Now().Add(p.readTimeout)) {
 			conn.SetWriteDeadline(time.Now().Add(p.writeTimeout))
 			if err := scanner.Err(); err != nil {
-				if err == ErrClosedConnection {
-					break
-				}
 				e := sendError(writer, ErrScan.Error())
 				log.Printf("scan error %s: %s", conn.RemoteAddr().String(), err)
 				if e != nil {
 					log.Printf("couldn't send error to %s: %s", conn.RemoteAddr().String(), e)
-				}
-				if e == io.EOF || e == io.ErrClosedPipe || e == io.ErrUnexpectedEOF {
 					break
 				}
-				continue
+				break
 			}
 			res, ok := scanner.Type().(*respTypes.Array)
 			if !ok {
@@ -181,12 +176,23 @@ func (p *pool) thread() {
 				continue
 			}
 			cmd := string(res.Contents[0].Value().([]byte))
+
+			if strings.ToUpper(cmd) == "QUIT" {
+				s := respTypes.SimpleString("OK")
+				_, err := s.Stream(writer)
+				if err == nil {
+					_ = writer.Flush()
+				}
+				conn.Close()
+				break
+			}
+
 			params := [][]byte{}
 			for _, v := range res.Contents[1:] {
 				params = append(params, v.Value().([]byte))
 			}
 			authAttempt := false
-			if authed == false && strings.ToLower(cmd) == "auth" {
+			if authed == false && strings.ToUpper(cmd) == "AUTH" {
 				authAttempt = true
 			}
 			if authed == false && authAttempt == false {
@@ -200,7 +206,7 @@ func (p *pool) thread() {
 				}
 				continue
 			}
-			response, err := p.processor.Execute(cmd, params)
+			response, err := p.processor.Execute(strings.ToUpper(cmd), params)
 			if err != nil {
 				e := sendError(writer, err.Error())
 				if e != nil {
@@ -233,23 +239,9 @@ func (p *pool) thread() {
 
 // NewPool creates a new thread pool
 func NewPool(config *config.Config, processor processor.Processor) Pool {
-	// Add the auth command
-	processor.AddCommand("AUTH", func(params [][]byte) (respTypes.Type, error) {
-		s := make([]string, 0)
-		for _, v := range params {
-			s = append(s, string(v))
-		}
-		passwd := strings.Join(s, " ")
-		if len(params) > 0 {
-			if passwd == config.RequirePass {
-				s := respTypes.SimpleString("OK")
-				return &respTypes.Array{Contents: []respTypes.Type{
-					&s,
-				}}, nil
-			}
-		}
-		return nil, ErrNoAuth
-	})
+	addAuthCmd(config, processor)
+	addEchoCmd(config, processor)
+	addPingCmd(config, processor)
 
 	p := &pool{
 		processor:    processor,

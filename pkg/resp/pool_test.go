@@ -1,7 +1,6 @@
 package resp_test
 
 import (
-	"log"
 	"testing"
 
 	"github.com/furui/gochunk/pkg/config"
@@ -93,13 +92,12 @@ func TestPoolResponses(t *testing.T) {
 				n, err := c.Read(buf)
 				assert.NoError(t, err)
 				slicebuf = append(slicebuf, buf[:n]...)
-				log.Printf(string(buf[:n]))
 			}
 			assert.Equal(t, tC.response, slicebuf)
 		})
 	}
 
-	conf.RequirePass = "test"
+	conf.RequirePass = "test 1 2 3"
 	s, c = mocks.NewMockConn()
 	p.Queue(s)
 	authCases := []struct {
@@ -119,12 +117,12 @@ func TestPoolResponses(t *testing.T) {
 		},
 		{
 			desc:     "correct auth",
-			write:    []byte("*2\r\n$4\r\nAUTH\r\n$4\r\ntest\r\n"),
+			write:    []byte("*2\r\n$4\r\nAUTH\r\n$10\r\ntest 1 2 3\r\n"),
 			response: []byte("*1\r\n+OK\r\n"),
 		},
 		{
 			desc:     "real command after auth",
-			write:    []byte("*2\r\n$4\r\nAUTH\r\n$4\r\ntest\r\n*2\r\n$4\r\nKEYS\r\n$1\r\n*\r\n"),
+			write:    []byte("*2\r\n$4\r\nAUTH\r\n$10\r\ntest 1 2 3\r\n*2\r\n$4\r\nKEYS\r\n$1\r\n*\r\n"),
 			response: []byte("*1\r\n+OK\r\n*1\r\n+TEST\r\n"),
 		},
 	}
@@ -136,7 +134,6 @@ func TestPoolResponses(t *testing.T) {
 				n, err := c.Read(buf)
 				assert.NoError(t, err)
 				slicebuf = append(slicebuf, buf[:n]...)
-				log.Printf(string(buf[:n]))
 			}
 			assert.Equal(t, tC.response, slicebuf)
 
@@ -148,5 +145,81 @@ func TestPoolResponses(t *testing.T) {
 }
 
 func TestIncompleteConnection(t *testing.T) {
+	p, _ := setupPool()
+	err := p.Start()
+	assert.NoError(t, err)
+	s, c := mocks.NewMockConn()
+	p.Queue(s)
 
+	assert.NotPanics(t, func() {
+		c.Write([]byte("*2\r\n$4\r\nKEYS\r\n$1\r\n*\r\n"))
+		c.Close()
+
+		err = p.Stop()
+		assert.NoError(t, err)
+	})
+}
+
+func TestQuit(t *testing.T) {
+	p, _ := setupPool()
+	err := p.Start()
+	buf := make([]byte, 50)
+	assert.NoError(t, err)
+	s, c := mocks.NewMockConn()
+	p.Queue(s)
+	c.Write([]byte("*1\r\n$4\r\nQUIT\r\n"))
+	n, err := c.Read(buf)
+	assert.NoError(t, err)
+	assert.Equal(t, []byte("+OK\r\n"), buf[:n])
+	n, err = s.Write([]byte("*1\r\n$4\r\nPING\r\n"))
+	assert.Zero(t, n)
+	assert.Error(t, err)
+	err = p.Stop()
+	assert.NoError(t, err)
+}
+
+func TestBuiltIns(t *testing.T) {
+	p, _ := setupPool()
+	err := p.Start()
+	assert.NoError(t, err)
+	buf := make([]byte, 50)
+	s, c := mocks.NewMockConn()
+	p.Queue(s)
+
+	testCases := []struct {
+		desc     string
+		write    []byte
+		response []byte
+	}{
+		{
+			desc:     "echo",
+			write:    []byte("*2\r\n$4\r\nECHO\r\n$13\r\ntesting 1 2 3\r\n"),
+			response: []byte("$13\r\ntesting 1 2 3\r\n"),
+		},
+		{
+			desc:     "ping",
+			write:    []byte("*1\r\n$4\r\nPING\r\n"),
+			response: []byte("+PONG\r\n"),
+		},
+		{
+			desc:     "ping payload",
+			write:    []byte("*2\r\n$4\r\nPING\r\n$13\r\ntesting 1 2 3\r\n"),
+			response: []byte("$13\r\ntesting 1 2 3\r\n"),
+		},
+	}
+	for _, tC := range testCases {
+		t.Run(tC.desc, func(t *testing.T) {
+			c.Write(tC.write)
+			slicebuf := make([]byte, 0)
+			for len(slicebuf) < len(tC.response) {
+				n, err := c.Read(buf)
+				assert.NoError(t, err)
+				slicebuf = append(slicebuf, buf[:n]...)
+			}
+			assert.Equal(t, tC.response, slicebuf)
+		})
+	}
+
+	err = p.Stop()
+	assert.NoError(t, err)
 }

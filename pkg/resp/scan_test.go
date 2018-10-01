@@ -76,6 +76,16 @@ func TestScanner_Type(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "inline command long quotes",
+			r:    bytes.NewBufferString("foo \"bar test\"\r\n"),
+			want: &respTypes.Array{
+				Contents: []respTypes.Type{
+					&respTypes.BulkString{Data: []byte("foo")},
+					&respTypes.BulkString{Data: []byte("bar test")},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
