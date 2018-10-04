@@ -13,6 +13,7 @@ import (
 
 	"github.com/furui/gochunk/pkg/config"
 	"github.com/furui/gochunk/pkg/processor"
+	"github.com/furui/gochunk/pkg/state"
 	respTypes "github.com/furui/gochunk/pkg/types"
 )
 
@@ -124,6 +125,7 @@ func (p *pool) thread() {
 		if conn == nil {
 			continue
 		}
+		state := state.NewClient()
 		authed := false
 		if p.config.RequirePass == "" {
 			authed = true
@@ -176,17 +178,6 @@ func (p *pool) thread() {
 				continue
 			}
 			cmd := string(res.Contents[0].Value().([]byte))
-
-			if strings.ToUpper(cmd) == "QUIT" {
-				s := respTypes.SimpleString("OK")
-				_, err := s.Stream(writer)
-				if err == nil {
-					_ = writer.Flush()
-				}
-				conn.Close()
-				break
-			}
-
 			params := [][]byte{}
 			for _, v := range res.Contents[1:] {
 				params = append(params, v.Value().([]byte))
@@ -206,7 +197,7 @@ func (p *pool) thread() {
 				}
 				continue
 			}
-			response, err := p.processor.Execute(strings.ToUpper(cmd), params)
+			response, err := p.processor.Execute(strings.ToUpper(cmd), state, params)
 			if err != nil {
 				e := sendError(writer, err.Error())
 				if e != nil {
@@ -232,6 +223,10 @@ func (p *pool) thread() {
 				}
 				log.Printf("couldn't flush to %s: %s", conn.RemoteAddr().String(), err)
 			}
+			if state.Closed() == true {
+				break
+			}
+
 		}
 		conn.Close()
 	}
@@ -242,6 +237,9 @@ func NewPool(config *config.Config, processor processor.Processor) Pool {
 	addAuthCmd(config, processor)
 	addEchoCmd(config, processor)
 	addPingCmd(config, processor)
+	addSelectCmd(config, processor)
+	addQuitCmd(config, processor)
+	addSwapDbCmd(config, processor)
 
 	p := &pool{
 		processor:    processor,

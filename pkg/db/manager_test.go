@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/furui/gochunk/pkg/db"
-	"github.com/furui/gochunk/pkg/processor"
 	"github.com/furui/gochunk/pkg/uuid"
 	"github.com/stretchr/testify/assert"
 
@@ -30,7 +29,7 @@ func init() {
 func TestGet(t *testing.T) {
 	conf := config.NewConfig()
 	conf.DatabaseLocation = os.TempDir()
-	manager := db.NewManager(conf, processor.NewProcessor(), uuid.NewGenerator())
+	manager := db.NewManager(conf, uuid.NewGenerator())
 	assert.NotPanics(t, func() {
 		first, err := manager.Get(1)
 		assert.NoError(t, err)
@@ -42,11 +41,19 @@ func TestGet(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, first, third)
 	})
-	err := manager.Close()
+	err := manager.Swap(3, 4)
+	assert.Error(t, err)
+	err = manager.Swap(1, 2)
+	assert.Error(t, err)
+	err = manager.Swap(5, 2)
+	assert.Error(t, err)
+	err = manager.Swap(1, 5)
+	assert.NoError(t, err)
+	err = manager.Close()
 	assert.NoError(t, err)
 	assert.FileExists(t, filepath.Join(os.TempDir(), "manager.db"))
 
-	manager = db.NewManager(conf, processor.NewProcessor(), uuid.NewGenerator())
+	manager = db.NewManager(conf, uuid.NewGenerator())
 	assert.NotPanics(t, func() {
 		first, err := manager.Get(1)
 		assert.NoError(t, err)

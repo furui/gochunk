@@ -2,24 +2,34 @@ package main
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/furui/gochunk/pkg/resp"
 )
 
 func main() {
 	c := NewContainer()
-	c.Invoke(func(s resp.Server) {
+	log.Print("Starting server")
+	err := c.Invoke(func(s resp.Server) {
 		err := s.Start()
 		if err != nil {
 			panic(err)
 		}
 	})
+	if err != nil {
+		panic(err)
+	}
+	log.Print("Server started")
 	var s string
-	fmt.Scan(&s)
-	c.Invoke(func(s resp.Server) {
+	fmt.Scanln(&s)
+	err = c.Invoke(func(s resp.Server) {
 		err := s.Stop()
 		if err != nil {
 			panic(err)
 		}
 	})
+	if err != nil {
+		panic(err)
+	}
+	log.Print("Server stopped")
 }

@@ -11,18 +11,17 @@ import (
 	"github.com/furui/gochunk/pkg/uuid"
 
 	"github.com/furui/gochunk/pkg/config"
-	"github.com/furui/gochunk/pkg/processor"
 )
 
 // Manager manages multiple databases
 type Manager interface {
+	Swap(a int, b int) error
 	Get(id int) (Database, error)
 	Close() error
 }
 
 type manager struct {
 	DB        *bbolt.DB
-	proc      processor.Processor
 	uuid      uuid.Generator
 	databases map[int]string
 	pool      map[string]Database
@@ -32,11 +31,15 @@ type manager struct {
 
 var (
 	// ErrorManagerClosed returned when the manager is closed
-	ErrorManagerClosed = fmt.Errorf("Manager is closed")
+	ErrorManagerClosed = fmt.Errorf("manager is closed")
+	// ErrorFirstIndexNonExistant returned when the first index doesn't exist
+	ErrorFirstIndexNonExistant = fmt.Errorf("first index non-existant")
+	// ErrorSecondIndexNonExistant returned when the second index doesn't exist
+	ErrorSecondIndexNonExistant = fmt.Errorf("second index non-existant")
 )
 
 // NewManager creates a new database manager
-func NewManager(conf *config.Config, proc processor.Processor, uuid uuid.Generator) Manager {
+func NewManager(conf *config.Config, uuid uuid.Generator) Manager {
 	dbLocation := filepath.Join(conf.DatabaseLocation, "manager.db")
 	DB, err := bbolt.Open(dbLocation, 0666, nil)
 	if err != nil {
@@ -44,7 +47,6 @@ func NewManager(conf *config.Config, proc processor.Processor, uuid uuid.Generat
 	}
 	m := &manager{
 		DB:     DB,
-		proc:   proc,
 		uuid:   uuid,
 		pool:   make(map[string]Database),
 		closed: false,
@@ -111,6 +113,22 @@ func (m *manager) generate(id int) string {
 	m.databases[id] = u.String()
 	m.save()
 	return m.databases[id]
+}
+
+func (m *manager) Swap(a int, b int) error {
+	m.mux.Lock()
+	defer m.mux.Unlock()
+	aSide, ok := m.databases[a]
+	if !ok {
+		return ErrorFirstIndexNonExistant
+	}
+	bSide, ok := m.databases[b]
+	if !ok {
+		return ErrorSecondIndexNonExistant
+	}
+	m.databases[a], m.databases[b] = bSide, aSide
+	m.save()
+	return nil
 }
 
 func (m *manager) Get(id int) (Database, error) {

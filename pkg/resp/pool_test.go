@@ -4,7 +4,9 @@ import (
 	"testing"
 
 	"github.com/furui/gochunk/pkg/config"
+	"github.com/furui/gochunk/pkg/db"
 	"github.com/furui/gochunk/pkg/processor"
+	"github.com/furui/gochunk/pkg/state"
 	respTypes "github.com/furui/gochunk/pkg/types"
 
 	"github.com/furui/gochunk/pkg/mocks"
@@ -13,8 +15,8 @@ import (
 )
 
 func setupPool() (resp.Pool, *config.Config) {
-	proc := processor.NewProcessor()
-	proc.AddCommand("KEYS", func(params [][]byte) (respTypes.Type, error) {
+	proc := processor.NewProcessor(nil)
+	proc.AddCommand("KEYS", func(dbManager db.Manager, state state.Client, params [][]byte) (respTypes.Type, error) {
 		s := respTypes.SimpleString("TEST")
 		return &respTypes.Array{Contents: []respTypes.Type{
 			&s,
