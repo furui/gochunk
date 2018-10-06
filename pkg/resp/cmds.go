@@ -1,6 +1,7 @@
 package resp
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 
@@ -11,19 +12,27 @@ import (
 	respTypes "github.com/furui/gochunk/pkg/types"
 )
 
+var (
+	// ErrNoMatchingPass is thrown when auth fails
+	ErrNoMatchingPass = errors.New("authentication required")
+)
+
 func addAuthCmd(config *config.Config, processor processor.Processor) {
 	processor.AddCommand("AUTH", func(dbManager db.Manager, state state.Client, params [][]byte) (respTypes.Type, error) {
 		if len(params) != 1 {
 			return nil, fmt.Errorf("one parameter expected")
 		}
 		passwd := string(params[0])
-		if passwd == config.RequirePass {
+		if ok, err := state.Authenticate(passwd); ok {
+			if err != nil {
+				return nil, err
+			}
 			s := respTypes.SimpleString("OK")
 			return &respTypes.Array{Contents: []respTypes.Type{
 				&s,
 			}}, nil
 		}
-		return nil, ErrNoAuth
+		return nil, ErrNoMatchingPass
 	})
 }
 

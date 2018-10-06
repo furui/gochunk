@@ -1,12 +1,19 @@
 package processor
 
 import (
+	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/armon/go-radix"
 	"github.com/furui/gochunk/pkg/db"
 	"github.com/furui/gochunk/pkg/state"
 	respTypes "github.com/furui/gochunk/pkg/types"
+)
+
+var (
+	// ErrNoAuth is thrown when an auth error occurs
+	ErrNoAuth = errors.New("authentication required")
 )
 
 // Command is executed when a matching command is matched
@@ -50,6 +57,9 @@ func (p *processor) Execute(command string, state state.Client, params [][]byte)
 	c, exist := p.r.Get(command)
 	if !exist {
 		return nil, fmt.Errorf("unknown command '%s'", command)
+	}
+	if !state.Authenticated() && strings.ToUpper(command) != "AUTH" {
+		return nil, ErrNoAuth
 	}
 	return c.(Command)(p.dbManager, state, params)
 }

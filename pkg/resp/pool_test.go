@@ -85,6 +85,11 @@ func TestPoolResponses(t *testing.T) {
 			write:    []byte("*2\r\n$4\r\nKEYS\r\n$1\r\n*\r\n*2\r\n$4\r\nKEYS\r\n$1\r\n*\r\n"),
 			response: []byte("*1\r\n+TEST\r\n*1\r\n+TEST\r\n"),
 		},
+		{
+			desc:     "auth no passwd",
+			write:    []byte("*2\r\n$4\r\nAUTH\r\n$4\r\ntest\r\n"),
+			response: []byte("-Client sent AUTH, but no password set\r\n"),
+		},
 	}
 	for _, tC := range testCases {
 		t.Run(tC.desc, func(t *testing.T) {

@@ -30,8 +30,6 @@ var (
 	ErrWrite = errors.New("write failed")
 	// ErrFlush is thrown when a flush fails
 	ErrFlush = errors.New("flush failed")
-	// ErrNoAuth is thrown when an auth error occurs
-	ErrNoAuth = errors.New("authentication required")
 )
 
 // Pool contains a thread pool that handles connections
@@ -120,16 +118,17 @@ func (p *pool) thread() {
 	for p.running() != false {
 		p.Lock()
 		p.cond.Wait()
+
 		p.Unlock()
 		conn := p.dequeue()
 		if conn == nil {
 			continue
 		}
+
 		state := state.NewClient()
-		authed := false
-		if p.config.RequirePass == "" {
-			authed = true
-		}
+		state.SetAuthRequired(p.config.RequirePass)
+		state.SetRemoteAddr(conn.RemoteAddr().String())
+
 		scanner := NewScanner(conn)
 		writer := bufio.NewWriter(conn)
 		for conn.SetReadDeadline(time.Now().Add(p.readTimeout)); scanner.Scan(); conn.SetReadDeadline(time.Now().Add(p.readTimeout)) {
@@ -182,21 +181,6 @@ func (p *pool) thread() {
 			for _, v := range res.Contents[1:] {
 				params = append(params, v.Value().([]byte))
 			}
-			authAttempt := false
-			if authed == false && strings.ToUpper(cmd) == "AUTH" {
-				authAttempt = true
-			}
-			if authed == false && authAttempt == false {
-				log.Printf("unauthorized access attempt from %s", conn.RemoteAddr().String())
-				e := sendError(writer, ErrNoAuth.Error())
-				if e != nil {
-					log.Printf("couldn't send error to %s: %s", conn.RemoteAddr().String(), e)
-				}
-				if e == io.EOF || e == io.ErrClosedPipe || e == io.ErrUnexpectedEOF {
-					break
-				}
-				continue
-			}
 			response, err := p.processor.Execute(strings.ToUpper(cmd), state, params)
 			if err != nil {
 				e := sendError(writer, err.Error())
@@ -207,9 +191,6 @@ func (p *pool) thread() {
 					break
 				}
 				continue
-			}
-			if authed == false && authAttempt == true {
-				authed = true
 			}
 			if _, err := response.Stream(writer); err != nil {
 				if err == io.EOF || err == io.ErrClosedPipe || err == io.ErrUnexpectedEOF {
