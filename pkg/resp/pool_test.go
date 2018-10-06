@@ -1,7 +1,13 @@
 package resp_test
 
 import (
+	"log"
+	"os"
+	"path/filepath"
 	"testing"
+	"time"
+
+	"github.com/furui/gochunk/pkg/uuid"
 
 	"github.com/furui/gochunk/pkg/config"
 	"github.com/furui/gochunk/pkg/db"
@@ -14,21 +20,41 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func setupPool() (resp.Pool, *config.Config) {
-	proc := processor.NewProcessor(nil)
+func init() {
+	files, err := filepath.Glob(filepath.Join(os.TempDir(), "*.db"))
+	if err != nil {
+		return
+	}
+	for _, f := range files {
+		err = os.Remove(f)
+		if err != nil {
+			log.Printf("warning: couldn't remove %s: %s", f, err)
+		}
+	}
+}
+
+func setupPool() (db.Manager, resp.Pool, *config.Config) {
+	conf := config.NewConfig()
+	conf.ReadTimeout = time.Second
+	conf.DatabaseLocation = os.TempDir()
+
+	data := db.NewManager(conf, uuid.NewGenerator())
+
+	proc := processor.NewProcessor(data)
 	proc.AddCommand("KEYS", func(dbManager db.Manager, state state.Client, params [][]byte) (respTypes.Type, error) {
 		s := respTypes.SimpleString("TEST")
 		return &respTypes.Array{Contents: []respTypes.Type{
 			&s,
 		}}, nil
 	})
-	conf := config.NewConfig()
+
 	p := resp.NewPool(conf, proc)
-	return p, conf
+	return data, p, conf
 }
 
 func TestPool(t *testing.T) {
-	p, _ := setupPool()
+	data, p, _ := setupPool()
+	defer data.Close()
 	err := p.Start()
 	assert.NoError(t, err)
 	err = p.Start()
@@ -38,7 +64,8 @@ func TestPool(t *testing.T) {
 }
 
 func TestPoolResponses(t *testing.T) {
-	p, conf := setupPool()
+	data, p, conf := setupPool()
+	defer data.Close()
 	err := p.Start()
 	assert.NoError(t, err)
 	buf := make([]byte, 50)
@@ -152,7 +179,8 @@ func TestPoolResponses(t *testing.T) {
 }
 
 func TestIncompleteConnection(t *testing.T) {
-	p, _ := setupPool()
+	data, p, _ := setupPool()
+	defer data.Close()
 	err := p.Start()
 	assert.NoError(t, err)
 	s, c := mocks.NewMockConn()
@@ -165,10 +193,13 @@ func TestIncompleteConnection(t *testing.T) {
 		err = p.Stop()
 		assert.NoError(t, err)
 	})
+
+	data.Close()
 }
 
 func TestQuit(t *testing.T) {
-	p, _ := setupPool()
+	data, p, _ := setupPool()
+	defer data.Close()
 	err := p.Start()
 	buf := make([]byte, 50)
 	assert.NoError(t, err)
@@ -186,7 +217,8 @@ func TestQuit(t *testing.T) {
 }
 
 func TestBuiltIns(t *testing.T) {
-	p, _ := setupPool()
+	data, p, _ := setupPool()
+	defer data.Close()
 	err := p.Start()
 	assert.NoError(t, err)
 	buf := make([]byte, 50)
@@ -212,6 +244,21 @@ func TestBuiltIns(t *testing.T) {
 			desc:     "ping payload",
 			write:    []byte("*2\r\n$4\r\nPING\r\n$13\r\ntesting 1 2 3\r\n"),
 			response: []byte("$13\r\ntesting 1 2 3\r\n"),
+		},
+		{
+			desc:     "select",
+			write:    []byte("*2\r\n$6\r\nSELECT\r\n$2\r\n11\r\n"),
+			response: []byte("+OK\r\n"),
+		},
+		{
+			desc:     "swap non existing db",
+			write:    []byte("*3\r\n$6\r\nSWAPDB\r\n$2\r\n20\r\n$2\r\n30\r\n"),
+			response: []byte("+OK\r\n"),
+		},
+		{
+			desc:     "swap existing db",
+			write:    []byte("*2\r\n$6\r\nSELECT\r\n$1\r\n5\r\n*2\r\n$6\r\nSELECT\r\n$1\r\n6\r\n*3\r\n$6\r\nSWAPDB\r\n$1\r\n5\r\n$1\r\n6\r\n"),
+			response: []byte("+OK\r\n+OK\r\n+OK\r\n"),
 		},
 	}
 	for _, tC := range testCases {
