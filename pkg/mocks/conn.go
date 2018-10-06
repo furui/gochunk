@@ -37,20 +37,20 @@ func NewMockConn() (net.Conn, net.Conn) {
 	ln, _ := net.Listen("tcp", fmt.Sprintf(":%d", freeport))
 	client := make(chan net.Conn, 0)
 	go func(client chan net.Conn) {
-		t, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", freeport))
-		if err == nil {
-			goto DONE
-		}
-		for err != nil {
+		var t net.Conn
+		var err error
+		for {
 			t, err = net.Dial("tcp", fmt.Sprintf("localhost:%d", freeport))
+			if err == nil {
+				break
+			}
 		}
-	DONE:
 		client <- t
 	}(client)
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
-			// handle error
+			panic(err)
 		}
 		return conn, <-client
 	}
