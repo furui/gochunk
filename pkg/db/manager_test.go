@@ -54,10 +54,10 @@ func TestGet(t *testing.T) {
 	assert.FileExists(t, filepath.Join(os.TempDir(), "manager.db"))
 
 	manager = db.NewManager(conf, uuid.NewGenerator())
+	defer manager.Close()
 	assert.NotPanics(t, func() {
 		first, err := manager.Get(1)
 		assert.NoError(t, err)
 		assert.NotNil(t, first)
 	})
-
 }

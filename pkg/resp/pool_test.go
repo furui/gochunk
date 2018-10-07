@@ -4,6 +4,8 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"reflect"
+	"sync"
 	"testing"
 	"time"
 
@@ -276,4 +278,55 @@ func TestBuiltIns(t *testing.T) {
 
 	err = p.Stop()
 	assert.NoError(t, err)
+}
+
+func TestParallel(t *testing.T) {
+	testCases := []struct {
+		desc     string
+		write    []byte
+		response []byte
+	}{
+		{
+			desc:     "echo",
+			write:    []byte("*2\r\n$4\r\nECHO\r\n$13\r\ntesting 1 2 3\r\n"),
+			response: []byte("$13\r\ntesting 1 2 3\r\n"),
+		},
+	}
+	data, p, _ := setupPool()
+	defer data.Close()
+	err := p.Start()
+	assert.NoError(t, err)
+	defer p.Stop()
+	var wg sync.WaitGroup
+
+	pass := true
+	for i := 0; i < 20; i++ {
+		wg.Add(1)
+		t.Logf("Test%d", i)
+		go func(i int) {
+			defer wg.Done()
+			s, c := mocks.NewMockConn()
+			p.Queue(s)
+			buf := make([]byte, 50)
+			tC := testCases[0]
+			c.Write(tC.write)
+			slicebuf := make([]byte, 0)
+			for len(slicebuf) < len(tC.response) {
+				n, err := c.Read(buf)
+				if err != nil {
+					t.Error(err)
+					pass = false
+					return
+				}
+				slicebuf = append(slicebuf, buf[:n]...)
+			}
+			if reflect.DeepEqual(tC.response, slicebuf) == false {
+				pass = false
+			}
+			c.Close()
+			t.Logf("Test%d done", i)
+		}(i)
+	}
+	wg.Wait()
+	assert.True(t, pass)
 }
