@@ -129,7 +129,7 @@ func (p *pool) thread() {
 		state.SetAuthRequired(p.config.RequirePass)
 		state.SetRemoteAddr(conn.RemoteAddr().String())
 
-		scanner := NewScanner(conn)
+		scanner := respTypes.NewScanner(conn)
 		writer := bufio.NewWriter(conn)
 		for conn.SetReadDeadline(time.Now().Add(p.readTimeout)); scanner.Scan(); conn.SetReadDeadline(time.Now().Add(p.readTimeout)) {
 			conn.SetWriteDeadline(time.Now().Add(p.writeTimeout))

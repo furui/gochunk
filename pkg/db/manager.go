@@ -23,6 +23,7 @@ type Manager interface {
 type manager struct {
 	DB        *bbolt.DB
 	uuid      uuid.Generator
+	conf      *config.Config
 	databases map[int]string
 	pool      map[string]Database
 	mux       sync.Mutex
@@ -46,6 +47,7 @@ func NewManager(conf *config.Config, uuid uuid.Generator) Manager {
 		panic(err)
 	}
 	m := &manager{
+		conf:   conf,
 		DB:     DB,
 		uuid:   uuid,
 		pool:   make(map[string]Database),
@@ -145,7 +147,7 @@ func (m *manager) Get(id int) (Database, error) {
 	}
 	d, ok = m.pool[db]
 	if !ok {
-		d = NewDatabase(db)
+		d = NewDatabase(db, m.conf)
 		m.pool[db] = d
 	}
 	return d, nil

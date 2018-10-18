@@ -1,4 +1,4 @@
-package resp
+package types
 
 import (
 	"bufio"
@@ -9,8 +9,6 @@ import (
 	"io"
 	"strconv"
 	"strings"
-
-	respTypes "github.com/furui/gochunk/pkg/types"
 )
 
 var (
@@ -25,7 +23,7 @@ type Scanner struct {
 	err        error
 	scanCalled bool
 	done       bool
-	t          respTypes.Type
+	t          Type
 }
 
 // NewScanner returns a new scanner
@@ -59,11 +57,11 @@ func (s *Scanner) Err() error {
 }
 
 // Type returns the last type read
-func (s *Scanner) Type() respTypes.Type {
+func (s *Scanner) Type() Type {
 	return s.t
 }
 
-func (s *Scanner) scanType() (respTypes.Type, error) {
+func (s *Scanner) scanType() (Type, error) {
 	val, err := s.read.ReadSlice('\n')
 	if err != nil {
 		return nil, err
@@ -80,10 +78,10 @@ func (s *Scanner) scanType() (respTypes.Type, error) {
 
 	switch val[0] {
 	case '+':
-		t := respTypes.SimpleString(string(val[1:]))
+		t := SimpleString(string(val[1:]))
 		return &t, nil
 	case '-':
-		t := respTypes.Error(string(val[1:]))
+		t := Error(string(val[1:]))
 		return &t, nil
 	case ':':
 		i, err := strconv.ParseInt(string(val[1:]), 10, 64)
@@ -91,7 +89,7 @@ func (s *Scanner) scanType() (respTypes.Type, error) {
 			s.read.Reset(s.r)
 			return nil, err
 		}
-		t := respTypes.Integer(i)
+		t := Integer(i)
 		return &t, nil
 	case '$':
 		i, err := strconv.ParseInt(string(val[1:]), 10, 64)
@@ -100,7 +98,7 @@ func (s *Scanner) scanType() (respTypes.Type, error) {
 			return nil, err
 		}
 		if i < 0 {
-			return &respTypes.BulkString{Data: nil}, nil
+			return &BulkString{Data: nil}, nil
 		}
 		buf := make([]byte, i, i)
 		if i > 0 {
@@ -126,7 +124,7 @@ func (s *Scanner) scanType() (respTypes.Type, error) {
 			s.read.Reset(s.r)
 			return nil, fmt.Errorf("Terminating CRLF not found")
 		}
-		return &respTypes.BulkString{Data: buf}, nil
+		return &BulkString{Data: buf}, nil
 	case '*':
 		n, err := strconv.ParseInt(string(val[1:]), 10, 64)
 		if err != nil {
@@ -136,7 +134,7 @@ func (s *Scanner) scanType() (respTypes.Type, error) {
 			s.read.Reset(s.r)
 			return nil, fmt.Errorf("Number of indexes must be zero or positive")
 		}
-		t := []respTypes.Type{}
+		t := []Type{}
 		for i := int64(0); i < n; i++ {
 			v, err := s.scanType()
 			if err != nil {
@@ -144,7 +142,7 @@ func (s *Scanner) scanType() (respTypes.Type, error) {
 			}
 			t = append(t, v)
 		}
-		return &respTypes.Array{Contents: t}, nil
+		return &Array{Contents: t}, nil
 	default:
 		r := csv.NewReader(strings.NewReader(string(val)))
 		r.Comma = ' '
@@ -152,10 +150,10 @@ func (s *Scanner) scanType() (respTypes.Type, error) {
 		if err != nil {
 			return nil, err
 		}
-		t := []respTypes.Type{}
+		t := []Type{}
 		for _, s := range record {
-			t = append(t, &respTypes.BulkString{Data: []byte(s)})
+			t = append(t, &BulkString{Data: []byte(s)})
 		}
-		return &respTypes.Array{Contents: t}, nil
+		return &Array{Contents: t}, nil
 	}
 }
